@@ -78,7 +78,7 @@ class RVTraceEstimator:
             self.period = sp.paramget('P', self.dp)
             self.T14 = sp.paramget('T14', self.dp)
             
-            obstimes = np.linspace(self.transitC-self.T14/24-0.5/24, self.transitC+self.T14/24+0.5/24, 200)
+            obstimes = np.linspace(self.transitC-self.period/2, self.transitC+self.period/2, 200)
             
         
         self.obstimes=obstimes
@@ -194,7 +194,7 @@ class RVTraceEstimator:
             self.r0_p = self.aRs * np.array([
                                        (np.cos(ecc_anomaly) - self.ecc),
                                        np.sqrt(1. - self.ecc * self.ecc) * np.sin(ecc_anomaly),
-                                        0
+                                        np.zeros_like(ecc_anomaly)
                                        ])
             
             
@@ -203,7 +203,6 @@ class RVTraceEstimator:
                                                   [np.cos(rotation_angle), np.sin(rotation_angle), 0],
                                                   [-np.sin(rotation_angle), np.cos(rotation_angle), 0],
                                                   [0,0,1]
-                                    
                                        ])
                     
             
@@ -230,7 +229,7 @@ class RVTraceEstimator:
             
             rp_rotation_matrix = np.array([
                         [np.cos(node), -np.sin(node), 0],
-                        [np.sin(node), np.cos(node)],
+                        [np.sin(node), np.cos(node), 0],
                         [0, 0, 1]
             ])
             
