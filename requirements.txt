@@ -1,0 +1,6 @@
+astropy==4.3.1
+matplotlib==3.5.1
+numpy==1.22.1
+PyAstronomy==0.15.0
+radvel==1.5.1
+seaborn==0.11.2
