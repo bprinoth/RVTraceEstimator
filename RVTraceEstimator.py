@@ -78,7 +78,7 @@ class RVTraceEstimator:
             self.period = sp.paramget('P', self.dp)
             self.T14 = sp.paramget('T14', self.dp)
             
-            obstimes = np.linspace(self.transitC-self.period/2, self.transitC+self.period/2, 200)
+            obstimes = np.linspace(self.transitC-self.T14/2, self.transitC+self.T14/2, 1000)
             
         
         self.obstimes=obstimes
@@ -198,10 +198,10 @@ class RVTraceEstimator:
                                        ])
             
             
-            rotation_angle = omega_bar - np.pi/2
+            rotation_angle = omega_bar #- np.pi/2
             r1_rotation_matrix =  np.array([
-                                                  [np.cos(rotation_angle), np.sin(rotation_angle), 0],
-                                                  [-np.sin(rotation_angle), np.cos(rotation_angle), 0],
+                                                  [np.sin(rotation_angle), np.cos(rotation_angle), 0],
+                                                  [-np.cos(rotation_angle), np.sin(rotation_angle), 0],
                                                   [0,0,1]
                                        ])
                     
@@ -211,6 +211,9 @@ class RVTraceEstimator:
             # self.Y0_p = self.r0_p[1]
             
             self.r0_1 = r1_rotation_matrix @ self.r0_p
+            
+            self.X1_p = self.r0_1[0]
+            self.Y1_p = self.r0_1[1]
             
             # # turn it w.r.t the argument of periastron
             # self.X1_p = self.X0_p * np.sin(omega_bar) + self.Y0_p * np.cos(omega_bar)
