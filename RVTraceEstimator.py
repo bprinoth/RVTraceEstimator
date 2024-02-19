@@ -34,6 +34,72 @@ plt.rcParams['legend.edgecolor'] = 'white'
 plt.rcParams['legend.framealpha'] = 1
 
 
+def paramget(keyword,dp,full_path=False,force_string = False):
+    """This code queries a planet system parameter from a config file located in the folder
+    specified by the path dp; or run configuration parameters from a file speciefied by the full
+    path dp, if full_path is set to True. It is taken from tayph @Hoeijmakers
+
+    Parameters
+    ----------
+    keyword : str
+        A keyword present in the cofig file.
+
+    dp : str, Path
+        Output filename/path.
+
+    full_path: bool
+        If set, dp refers to the actual file, not the location of a folder with a config.dat;
+        but the actual file itself.
+
+    Returns
+    -------
+    value : int, float, bool, str
+        The value corresponding to the requested keyword.
+
+    """
+    import pathlib
+    import distutils.util
+    import pdb
+
+
+    #This is probably the only case where I don't need obs_times and config to exist together...
+    dp=check_path(dp)
+    #typetest(keyword,str,'keyword in paramget()')
+
+    if isinstance(dp,str) == True:
+        dp=pathlib.Path(dp)
+    try:
+        if full_path == False:
+            dp = dp/'config'
+        f = open(dp, 'r')
+    except FileNotFoundError:
+        raise FileNotFoundError('Parameter file does not exist at %s' % str(dp)) from None
+    
+    x = f.read().splitlines()
+    f.close()
+    n_lines=len(x)
+    keywords={}
+    
+    for i in range(0,n_lines):
+        line=x[i].split()
+        if len(line) > 1:
+            if force_string:
+                value=(line[1])
+            else:
+                try:
+                    value=float(line[1])
+                except ValueError:
+                    try:
+                        value=bool(distutils.util.strtobool(line[1]))
+                    except ValueError:
+                        value=(line[1])
+            keywords[line[0]] = value
+    try:
+        return(keywords[keyword])
+    
+    except KeyError:
+        # print(keywords)
+        raise Exception('Keyword %s is not present in parameter file at %s' % (keyword,dp)) from None
 
 class RVTraceEstimator:
     
@@ -74,9 +140,9 @@ class RVTraceEstimator:
             obstimes = []
         
         if len(obstimes) == 0: # so in case this file is empty, we need to produce them from scratch
-            self.transitC = sp.paramget('Tc', self.dp)
-            self.period = sp.paramget('P', self.dp)
-            self.T14 = sp.paramget('T14', self.dp)
+            self.transitC = paramget('Tc', self.dp)
+            self.period = paramget('P', self.dp)
+            self.T14 = paramget('T14', self.dp)
             
             obstimes = np.linspace(self.transitC-self.T14/2, self.transitC+self.T14/2, 1000)
             
@@ -105,27 +171,27 @@ class RVTraceEstimator:
     def read_orbital_configuration(self):
         print('[INFO] Reading orbital configuration')
         #self.load_observation()
-        self.RA = sp.paramget('RA', self.dp)
-        self.DEC = sp.paramget('DEC', self.dp)
-        self.a = sp.paramget('a', self.dp)
-        self.aRs = sp.paramget('aRstar', self.dp)
-        self.orbinc = sp.paramget('inclination', self.dp)
-        self.vsini = sp.paramget('vsini', self.dp)
-        self.pob = sp.paramget('lampoo', self.dp)
-        self.transitC = sp.paramget('Tc', self.dp)
-        self.period = sp.paramget('P', self.dp)
-        self.ecc = sp.paramget('ecc', self.dp)
-        self.RpRs = sp.paramget('RpRstar', self.dp)
-        self.K = sp.paramget('K', self.dp)
-        self.vsys = sp.paramget('vsys', self.dp)
+        self.RA = paramget('RA', self.dp)
+        self.DEC = paramget('DEC', self.dp)
+        self.a = paramget('a', self.dp)
+        self.aRs = paramget('aRstar', self.dp)
+        self.orbinc = paramget('inclination', self.dp)
+        self.vsini = paramget('vsini', self.dp)
+        self.pob = paramget('lampoo', self.dp)
+        self.transitC = paramget('Tc', self.dp)
+        self.period = paramget('P', self.dp)
+        self.ecc = paramget('ecc', self.dp)
+        self.RpRs = paramget('RpRstar', self.dp)
+        self.K = paramget('K', self.dp)
+        self.vsys = paramget('vsys', self.dp)
         
         
         if self.ecc != 0:
             
-            self.omega = sp.paramget('omega', self.dp)  # Set the value of omega
+            self.omega = paramget('omega', self.dp)  # Set the value of omega
             omega_bar = np.radians(self.omega)
-            self.Ms = sp.paramget('Ms', self.dp) * u.Msun
-            self.Mp = sp.paramget('Mp', self.dp) * u.Mjup
+            self.Ms = paramget('Ms', self.dp) * u.Msun
+            self.Mp = paramget('Mp', self.dp) * u.Mjup
             self.T_per = radvel.orbit.timetrans_to_timeperi(self.transitC, self.period, self.ecc, omega_bar)
             
             
