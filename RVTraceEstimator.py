@@ -4,7 +4,6 @@ from astropy.io import ascii
 from astropy.time import Time
 from astropy.coordinates import EarthLocation, SkyCoord
 from PyAstronomy import pyasl
-import tayph.system_parameters as sp
 import astropy.units as u
 import radvel
 from PyAstronomy import modelSuite as ms
@@ -32,6 +31,7 @@ plt.rcParams['axes.linewidth'] = 2
 plt.rcParams['legend.facecolor'] = 'white'
 plt.rcParams['legend.edgecolor'] = 'white'
 plt.rcParams['legend.framealpha'] = 1
+
 
 
 def paramget(keyword,dp,full_path=False,force_string = False):
@@ -63,7 +63,7 @@ def paramget(keyword,dp,full_path=False,force_string = False):
 
 
     #This is probably the only case where I don't need obs_times and config to exist together...
-    dp=check_path(dp)
+    #dp=check_path(dp)
     #typetest(keyword,str,'keyword in paramget()')
 
     if isinstance(dp,str) == True:
@@ -101,6 +101,8 @@ def paramget(keyword,dp,full_path=False,force_string = False):
         # print(keywords)
         raise Exception('Keyword %s is not present in parameter file at %s' % (keyword,dp)) from None
 
+
+
 class RVTraceEstimator:
     
     
@@ -130,13 +132,14 @@ class RVTraceEstimator:
         
     def load_observation(self):
         print('[INFO] Loading observation')
-        
-            
+           
         # obstimes need to be in MJDs
         
         try:
             obstimes = ascii.read(f'{self.dp}/obs_times', comment="#")['col1']
+            
         except:
+            print("[INFO] Obstime doesn't exist, I will create obstimes for you.")
             obstimes = []
         
         if len(obstimes) == 0: # so in case this file is empty, we need to produce them from scratch
@@ -144,7 +147,7 @@ class RVTraceEstimator:
             self.period = paramget('P', self.dp)
             self.T14 = paramget('T14', self.dp)
             
-            obstimes = np.linspace(self.transitC-self.T14/2, self.transitC+self.T14/2, 1000)
+            obstimes = np.linspace(self.transitC-(self.T14+0.5)/24/2, self.transitC+(self.T14+0.5)/24/2, 200) - 2450000.5
             
         
         self.obstimes=obstimes
@@ -183,138 +186,98 @@ class RVTraceEstimator:
         self.ecc = paramget('ecc', self.dp)
         self.RpRs = paramget('RpRstar', self.dp)
         self.K = paramget('K', self.dp)
-        self.vsys = paramget('vsys', self.dp)
-        
-        
-        if self.ecc != 0:
-            
-            self.omega = paramget('omega', self.dp)  # Set the value of omega
-            omega_bar = np.radians(self.omega)
-            self.Ms = paramget('Ms', self.dp) * u.Msun
-            self.Mp = paramget('Mp', self.dp) * u.Mjup
-            self.T_per = radvel.orbit.timetrans_to_timeperi(self.transitC, self.period, self.ecc, omega_bar)
-            
-            
-               
-            
-            self.transit_ecc()  
-            #self.true_phase = 
-            
-            
-        else:
-            self.transit = sp.transit(self.dp)
-            true_phases = sp.phase(self.dp)
-            true_phases[true_phases > 0.5] -= 1. # making sure that they are indeed 
-            
-            self.true_phases = true_phases
-    
-        
+        self.vsys = paramget('vsys', self.dp)        
+        self.omega = paramget('omega', self.dp)  # Set the value of omega
+        omega_bar = np.radians(self.omega)
+        self.Ms = paramget('Ms', self.dp) * u.Msun
+        self.Mp = paramget('Mp', self.dp) * u.Mjup
+        self.T_per = radvel.orbit.timetrans_to_timeperi(self.transitC, self.period, self.ecc, omega_bar)
+        self.transit_ecc()          
     
     def calculate_planet_position(self):
         
         print('[INFO] Calculate planet position')
-        
-        if self.ecc==0:
-            # circular orbit
             
-            inclin_bar = np.radians(self.orbinc)
-            
-            self.true_anomaly = 2 * np.pi * self.true_phases
-            x_pl = self.aRs * np.sin(self.true_anomaly)
-            y_pl = -self.aRs * np.cos(self.true_anomaly) * np.cos(inclin_bar)
-            z_pl = self.aRs * np.cos(self.true_anomaly) * np.sin(inclin_bar)
-            node = np.radians(self.pob)
-            
-            
-            self.xp = x_pl * np.cos(node) - y_pl * np.sin(node)
-            self.yp = x_pl * np.sin(node) + y_pl * np.cos(node)
-            self.zp = z_pl
-            
-        else:
-            
-            # degree to radians
-            omega_bar = np.radians(self.omega)
-            inclin_bar = np.radians(self.orbinc)
-            
+        # degree to radians
+        omega_bar = np.radians(self.omega)
+        inclin_bar = np.radians(self.orbinc)
 
-            ke = pyasl.KeplerEllipse(
-                a=self.aRs,
-                per=self.period,
-                e=self.ecc,
-                i=self.orbinc,  # in degrees
-                Omega=0.,  # We don't care about the orientation in the sky
-                w=self.omega,  # in degrees,
-                tau=self.T_per
-            )
-            
-            ecc_anomaly = ke.eccentricAnomaly(self.bjds)
-            node = np.radians(self.pob)
-            
-            
-            
-            
-            self.true_anomaly = 2. * np.arctan(np.sqrt((1. + self.ecc) / (1. - self.ecc)) * np.tan(ecc_anomaly / 2.))
-            
-            # in matrix form
-            
-            self.r0_p = self.aRs * np.array([
-                                       (np.cos(ecc_anomaly) - self.ecc),
-                                       np.sqrt(1. - self.ecc * self.ecc) * np.sin(ecc_anomaly),
-                                        np.zeros_like(ecc_anomaly)
-                                       ])
-            
-            
-            rotation_angle = omega_bar #- np.pi/2
-            r1_rotation_matrix =  np.array([
-                                                  [np.sin(rotation_angle), np.cos(rotation_angle), 0],
-                                                  [-np.cos(rotation_angle), np.sin(rotation_angle), 0],
-                                                  [0,0,1]
-                                       ])
-                    
-            
-            # # create the eccentric orbit
-            # self.X0_p = self.r0_p[0]
-            # self.Y0_p = self.r0_p[1]
-            
-            self.r0_1 = r1_rotation_matrix @ self.r0_p
-            
-            self.X1_p = self.r0_1[0]
-            self.Y1_p = self.r0_1[1]
-            
-            # # turn it w.r.t the argument of periastron
-            # self.X1_p = self.X0_p * np.sin(omega_bar) + self.Y0_p * np.cos(omega_bar)
-            # self.Y1_p = -self.X0_p * np.cos(omega_bar) + self.Y0_p * np.sin(omega_bar)
-            
-            # turn it w.r.t to the inclination
-            
-            r_pl_rotation_matrix = np.array([
-                        [0, 1, 0],
-                        [-np.cos(inclin_bar), 0, 0],
-                        [np.sin(inclin_bar), 0, 0]
-             
-            ])
-            
-            self.r_pl = r_pl_rotation_matrix @ self.r0_1
-            
-            rp_rotation_matrix = np.array([
-                        [np.cos(node), -np.sin(node), 0],
-                        [np.sin(node), np.cos(node), 0],
-                        [0, 0, 1]
-            ])
-            
-            # x_pl = self.Y1_p
-            # y_pl = -self.X1_p * np.cos(inclin_bar)
-            # z_pl = self.X1_p * np.sin(inclin_bar)
-            
-            self.rp = rp_rotation_matrix @ self.r_pl
-            
-            self.xp = self.rp[0]
-            self.yp = self.rp[1]
-            self.zp = self.rp[2]
-            
-            # self.xp = x_pl * np.cos(node) - y_pl * np.sin(node)
-            # self.yp = x_pl * np.sin(node) + y_pl * np.cos(node)
-            # self.zp = z_pl
+
+        ke = pyasl.KeplerEllipse(
+            a=self.aRs,
+            per=self.period,
+            e=self.ecc,
+            i=self.orbinc,  # in degrees
+            Omega=0.,  # We don't care about the orientation in the sky
+            w=self.omega,  # in degrees,
+            tau=self.T_per
+        )
+
+        ecc_anomaly = ke.eccentricAnomaly(self.bjds)
+        node = np.radians(self.pob)
+
+        self.true_anomaly = 2. * np.arctan(np.sqrt((1. + self.ecc) / (1. - self.ecc)) * np.tan(ecc_anomaly / 2.))
+
+        # in matrix form
+
+        self.r0_p = self.aRs * np.array([
+                                   (np.cos(ecc_anomaly) - self.ecc),
+                                   np.sqrt(1. - self.ecc * self.ecc) * np.sin(ecc_anomaly),
+                                    np.zeros_like(ecc_anomaly)
+                                   ])
+
+
+        rotation_angle = omega_bar - np.pi/2
+        r1_rotation_matrix =  np.array([
+                                              [np.cos(rotation_angle), -np.sin(rotation_angle), 0],
+                                              [np.sin(rotation_angle), np.cos(rotation_angle), 0],
+                                              [0,0,1]
+                                   ])
+
+
+        # # create the eccentric orbit
+        # self.X0_p = self.r0_p[0]
+        # self.Y0_p = self.r0_p[1]
+
+        self.r0_1 = r1_rotation_matrix @ self.r0_p
+
+        self.X1_p = self.r0_1[0]
+        self.Y1_p = self.r0_1[1]
+
+        # # turn it w.r.t the argument of periastron
+        # self.X1_p = self.X0_p * np.sin(omega_bar) + self.Y0_p * np.cos(omega_bar)
+        # self.Y1_p = -self.X0_p * np.cos(omega_bar) + self.Y0_p * np.sin(omega_bar)
+
+        # turn it w.r.t to the inclination
+
+        r_pl_rotation_matrix = np.array([
+                    [0, 1, 0],
+                    [-np.cos(inclin_bar), 0, 0],
+                    [np.sin(inclin_bar), 0, 0]
+
+        ])
+
+        self.r_pl = r_pl_rotation_matrix @ self.r0_1
+
+        rp_rotation_matrix = np.array([
+                    [np.cos(node), -np.sin(node), 0],
+                    [np.sin(node), np.cos(node), 0],
+                    [0, 0, 1]
+        ])
+
+        # x_pl = self.Y1_p
+        # y_pl = -self.X1_p * np.cos(inclin_bar)
+        # z_pl = self.X1_p * np.sin(inclin_bar)
+
+        self.rp = rp_rotation_matrix @ self.r_pl
+
+        self.xp = self.rp[0]
+        self.yp = self.rp[1]
+        self.zp = self.rp[2]
+
+        # self.xp = x_pl * np.cos(node) - y_pl * np.sin(node)
+        # self.yp = x_pl * np.sin(node) + y_pl * np.cos(node)
+        # self.zp = z_pl
         
 
     def calculate_berv(self):
@@ -345,65 +308,54 @@ class RVTraceEstimator:
         #calculate_planet_position(self)
         print('[INFO] Calculating the RV extent of the star')
         
-        if self.ecc==0:
-            self.RVstar = sp.RV_star(self.dp)
-            
-        else:
-            rv = ms.KeplerRVModel()  # Changed from ms.KeplerRVModel()
-            rv.assignValue({
-                "per1": self.period,
-                'K1': self.K,
-                'e1': self.ecc,
-                'tau1': self.T_per,
-                'w1': self.omega,
-                'mstar': self.Ms,
-                'c0': 0.,
-                'a1': self.a,
-                'msini1': self.Mp * np.sin(np.radians(self.orbinc))
-            })
-            
-            #print(self.bjds)
-            
-            RVs = rv.evaluate(self.bjds)  # evaluate the RV of the star at a given time
-            self.RVstar = RVs
+        rv = ms.KeplerRVModel()  # Changed from ms.KeplerRVModel()
+        rv.assignValue({
+            "per1": self.period,
+            'K1': self.K,
+            'e1': self.ecc,
+            'tau1': self.T_per,
+            'w1': self.omega,
+            'mstar': self.Ms,
+            'c0': 0.,
+            'a1': self.a,
+            'msini1': self.Mp * np.sin(np.radians(self.orbinc))
+        })
+
+        RVs = rv.evaluate(self.bjds)  # evaluate the RV of the star at a given time
+        self.RVstar = RVs
             
     def RV_planet(self):
         print('[INFO] Calculating the RV extent of the planet')
         #calculate_planet_position(self)
         
-        if self.ecc==0:
-            self.RVplanet = sp.RV(self.dp)
-            
-        else:
-            self.RV_star()  # Call RV_star method of the class
-            self.RVplanet = -1. * (self.RVstar) * (self.Ms / self.Mp).decompose()
+        self.RV_star() 
+        self.RVplanet = -1. * (self.RVstar) * (self.Ms / self.Mp).decompose()
               
     def plot_doppler_trace(self, RF='system', RV_ext=100, save=True):
         #print('[INFO] Calculating the RV extent of the star')
         
         # plotting in different restframes
         
-        if self.ecc!=0:
-            true_anomaly_sorted_idx = np.argsort(self.true_anomaly)
-            true_anomaly_sorted = np.take_along_axis(self.true_anomaly, true_anomaly_sorted_idx, axis=0)
-            RVstar_sorted = np.take_along_axis(self.RVstar, true_anomaly_sorted_idx, axis=0)
-            vstar_sorted = np.take_along_axis(self.vstar, true_anomaly_sorted_idx, axis=0)  + RVstar_sorted
-            vplanet_sorted = np.take_along_axis(self.RVplanet, true_anomaly_sorted_idx, axis=0)
-            berv_sorted = np.take_along_axis(self.berv, true_anomaly_sorted_idx, axis=0)
-            tel = - self.vsys + berv_sorted
-            self.true_phases = self.true_anomaly / (2 * np.pi)
-            transit_sorted =  np.take_along_axis(self.transit, true_anomaly_sorted_idx, axis=0)
-            self.obtimes = np.take_along_axis(self.obstimes, true_anomaly_sorted_idx, axis=0)
+        true_anomaly_sorted_idx = np.argsort(self.true_anomaly)
+        true_anomaly_sorted = np.take_along_axis(self.true_anomaly, true_anomaly_sorted_idx, axis=0)
+        RVstar_sorted = np.take_along_axis(self.RVstar, true_anomaly_sorted_idx, axis=0)
+        vstar_sorted = np.take_along_axis(self.vstar, true_anomaly_sorted_idx, axis=0)  + RVstar_sorted
+        vplanet_sorted = np.take_along_axis(self.RVplanet, true_anomaly_sorted_idx, axis=0)
+        berv_sorted = np.take_along_axis(self.berv, true_anomaly_sorted_idx, axis=0)
+        tel = - self.vsys + berv_sorted
+        self.true_phases = true_anomaly_sorted / (2 * np.pi)
+        transit_sorted =  np.take_along_axis(self.transit, true_anomaly_sorted_idx, axis=0)
+        self.obtimes = np.take_along_axis(self.obstimes, true_anomaly_sorted_idx, axis=0)
             
-        else:
-            true_anomaly_sorted = self.true_anomaly
-            RVstar_sorted = self.RVstar
-            vstar_sorted = self.vstar.T +  RVstar_sorted
-            vplanet_sorted = self.RVplanet
-            berv_sorted = self.berv
-            tel = - self.vsys + berv_sorted
-            true_phases = self.true_phases * 2 * np.pi
-            transit_sorted =  self.transit
+        #else:
+        # true_anomaly_sorted = self.true_anomaly
+        # RVstar_sorted = self.RVstar
+        # vstar_sorted = self.vstar.T +  RVstar_sorted
+        # vplanet_sorted = self.RVplanet
+        # berv_sorted = self.berv
+        # tel = - self.vsys + berv_sorted
+        # true_phases = self.true_phases * 2 * np.pi
+        # transit_sorted =  self.transit
         
         
         if RF=='star':
@@ -472,7 +424,7 @@ class RVTraceEstimator:
 
 
         
-        #RV_ext = np.max(np.abs(np.concatenate()))
+        RV_ext = np.max(np.abs(np.concatenate()))
         
         if not RF=='all':
             plt.figure(figsize=(6,6))
@@ -490,6 +442,7 @@ class RVTraceEstimator:
             # tellurics:
             plt.plot(self.RVs_tel, true_anomaly_sorted / (2 * np.pi), lw=4, c=colors[3], ls='dotted', label='tellurics')  # Use self.vsys
 
+            print(transit_sorted)
             if transit_sorted[0] == 1:
                 
                 start_phase = true_anomaly_sorted[(transit_sorted != 1)][0] / (2 * np.pi)
