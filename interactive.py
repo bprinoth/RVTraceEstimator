@@ -6,79 +6,76 @@ import numpy as np
 
 app = Flask(__name__)
 
-
 def retrieve_system_parameters(system_id, obs, RF):
     # Query the database and retrieve system parameters based on system ID
     parameters = NasaExoplanetArchive.query_criteria(table='pscomppars', where=f"pl_name='{str(system_id)}'")
-    
-    if len(parameters) == 1:
-        # Extract parameter values
-        transitC = float(parameters['pl_tranmid'][0].value)
-        period = float(parameters['pl_orbper'][0].value) # if 'pl_orbper' in parameters else np.nan
-        ecc = float(parameters['pl_orbeccen'][0]) # if 'pl_orbeccen' in parameters else np.nan
-        omega = float(parameters['pl_orblper'][0].value)# if 'pl_orblper' in parameters else np.nan
-        a = float(parameters['pl_orbsmax'][0].value)# if 'pl_orbsmax' in parameters else np.nan
-        aRs = float(parameters['pl_ratdor'][0]) # if 'pl_ratdor' in parameters else np.nan
-        orbinc = float(parameters['pl_orbincl'][0].value) # if 'pl_orbincl' in parameters else np.nan
-        vsini = float(parameters['st_vsin'][0].value) #if 'st_vsin' in parameters else np.nan
-        pob = float(parameters['pl_projobliq'][0].value) #if 'pl_projobliq' in parameters else np.nan
-        Ms = float(parameters['st_mass'][0].value) #if 'st_mass' in parameters else np.nan
-        Mp = float(parameters['pl_bmassj'][0].value) #if 'pl_bmassj' in parameters else np.nan
-        RpRs = float(parameters['pl_ratror'][0]) #if 'pl_ratror' in parameters else np.nan
-        K = float(parameters['pl_rvamp'][0].value / 1000) #if 'pl_rvamp' in parameters else np.nan
-        vsys = float(parameters['st_radv'][0].value) #if 'st_radv' in parameters else np.nan
-        T14 = float(parameters['pl_trandur'][0].value) #if 'pl_trandur' in parameters else np.nan
-        RA = float(parameters['ra'][0].value) # if 'ra' in parameters else np.nan
-        DEC = float(parameters['dec'][0].value) #if 'dec' in parameters else np.nan
-        n_exp = 100
-        
-        # Return the extracted values as a dictionary
-        return {
-            'transitC': transitC,
-            'period': period,
-            'ecc': ecc,
-            'omega': omega,
-            'a': a,
-            'aRs': aRs,
-            'orbinc': orbinc,
-            'vsini': vsini,
-            'pob': pob,
-            'Ms': Ms,
-            'Mp': Mp,
-            'RpRs': RpRs,
-            'K': K,
-            'vsys': vsys,
-            'T14': T14,
-            'RA': RA,
-            'DEC': DEC,
-            'n_exp': n_exp,
-            'obs': obs,
-            'RF': RF
-        }
-    else:
-        # Return default values if no parameters are found
-        return {
-            'transitC': np.nan,
-            'period': np.nan,
-            'ecc': 0.7,
-            'omega': 60,
-            'a': 0.155,
-            'aRs': 18,
-            'orbinc': 90,
-            'vsini': 20,
-            'pob': 1.2,
-            'Ms': 1.53,
-            'Mp': 4.0,
-            'RpRs': 0.07,
-            'K': 0.338,
-            'vsys': 20,
-            'T14': 18,
-            'RA': '10:23:56.2397428368',
-            'DEC': '-56:50:35.342013012',
-            'n_exp': 100,
-            'obs': 'paranal',
-            'RF': 'star'
-        }
+
+    # Define a function to retrieve individual parameters or return default if not found
+    def get_parameter(parameter_name, default_value):
+        try:
+            if len(parameters) == 1:
+                try:
+                    value = float(parameters[parameter_name][0].value)
+                    if np.isnan(value):
+                        return default_value
+                    else: 
+                        return value
+                except:
+                    value = float(parameters[parameter_name][0])
+                    if np.isnan(value):
+                        return default_value
+                    else: 
+                        return value
+            else:
+                raise ValueError("Multiple parameters found")
+        except (KeyError, ValueError, TypeError):
+            print(f"[INFO] Error occurred while retrieving parameter '{parameter_name}'. Defaulting to default value.")
+            return default_value
+
+    # Extract parameters or use defaults if not found
+    transitC = get_parameter('pl_tranmid', default_value=0.0)
+    period = get_parameter('pl_orbper', default_value=0.0)
+    ecc = get_parameter('pl_orbeccen', default_value=0.0)
+    omega = get_parameter('pl_orblper', default_value=0.0)
+    a = get_parameter('pl_orbsmax', default_value=0.0)
+    aRs = get_parameter('pl_ratdor', default_value=0.0)
+    orbinc = get_parameter('pl_orbincl', default_value=0.0)
+    vsini = get_parameter('st_vsin', default_value=0.0)
+    pob = get_parameter('pl_projobliq', default_value=0.0)
+    Ms = get_parameter('st_mass', default_value=0.0)
+    Mp = get_parameter('pl_bmassj', default_value=0.0)
+    RpRs = get_parameter('pl_ratror', default_value=0.0)
+    K = get_parameter('pl_rvamp', default_value=0.0) / 1000
+    vsys = get_parameter('st_radv', default_value=0.0)
+    T14 = get_parameter('pl_trandur', default_value=0.0)
+    RA = get_parameter('ra', default_value=0.0)
+    DEC = get_parameter('dec', default_value=0.0)
+    n_exp = 100
+
+    # Return the extracted values as a dictionary
+    return {
+        'transitC': transitC,
+        'period': period,
+        'ecc': ecc,
+        'omega': omega,
+        'a': a,
+        'aRs': aRs,
+        'orbinc': orbinc,
+        'vsini': vsini,
+        'pob': pob,
+        'Ms': Ms,
+        'Mp': Mp,
+        'RpRs': RpRs,
+        'K': K,
+        'vsys': vsys,
+        'T14': T14,
+        'RA': RA,
+        'DEC': DEC,
+        'n_exp': n_exp,
+        'obs': obs,
+        'RF': RF
+    }
+
 
 @app.route('/')
 def index():
@@ -132,4 +129,4 @@ def plot():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5021)
+    app.run(debug=True, port=5022)

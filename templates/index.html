@@ -28,7 +28,7 @@
             <label for="RF">Rest Frame</label>
             <select class="form-control" id="RF">
                 <option value="star">Star</option>
-                <option value="barycentric">Barycentric</option>
+                <option value="berv">Barycentric</option>
                 <option value="planet">Planet</option>
                 <option value="obs">Observatory</option>
             </select>
@@ -36,6 +36,14 @@
 
         <button id="retrieve_parameters" class="btn btn-primary">Retrieve Parameters</button>
         <button id="plot" class="btn btn-success">Plot</button>
+    </div>
+
+    <!-- Place for loading spinner -->
+    <div id="loading-spinner" class="text-center" style="display: none;">
+        <div class="spinner-border" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+        <p>Loading parameters...</p>
     </div>
 
     <!-- Place for parameter inputs -->
@@ -58,11 +66,21 @@
                 var system_id = $('#system_id').val();
                 var obs = $('#obs').val(); // Get selected observatory
                 var RF = $('#RF').val();   // Get selected rest frame
+
+                // Show loading spinner
+                $('#loading-spinner').show();
+
+                // Clear existing parameter inputs and labels
+                $('#parameter-inputs').find('.form-group').remove();
+
                 $.ajax({
                     type: 'POST',
                     url: '/get_parameters',
                     data: { system_id: system_id, obs: obs, RF: RF }, // Pass observatory and rest frame
                     success: function(response) {
+                        // Hide loading spinner
+                        $('#loading-spinner').hide();
+
                         var parameter_inputs = '';
                         // Define the desired order of parameters
                         var parameter_order = ['transitC', 'period', 'ecc', 'omega', 'a', 'aRs', 'orbinc', 'vsini', 'pob', 'Ms', 'Mp', 'RpRs', 'K', 'vsys', 'T14', 'RA', 'DEC', 'n_exp'];
@@ -84,7 +102,7 @@
                             // Determine the target column based on the index
                             var target_column = Math.floor(index / parameters_per_column) + 1;
                             var columnId = '#column' + target_column; // Construct column ID
-                            // Append input to the respective column
+                            // Append input and label to the respective column
                             $(columnId).append('<div class="form-group">' +
                                                     '<label for="' + key + '">' + key + '</label>' +
                                                     '<input type="text" class="form-control" id="' + key + '" value="' + value + '">' +
