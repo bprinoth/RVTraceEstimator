@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RV Trace Estimator</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <!-- Include any additional CSS or Bootstrap themes here -->
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>RV Trace Estimator</h1>
+        <div class="form-group">
+            <label for="system_id">System ID</label>
+            <input type="text" class="form-control" id="system_id" placeholder="Enter system ID">
+        </div>
+
+        <!-- Observatory Dropdown -->
+        <div class="form-group">
+            <label for="obs">Observatory</label>
+            <select class="form-control" id="obs">
+                <option value="paranal">Paranal</option>
+            </select>
+        </div>
+
+        <!-- Rest Frame Dropdown -->
+        <div class="form-group">
+            <label for="RF">Rest Frame</label>
+            <select class="form-control" id="RF">
+                <option value="star">Star</option>
+                <option value="barycentric">Barycentric</option>
+                <option value="planet">Planet</option>
+                <option value="obs">Observatory</option>
+            </select>
+        </div>
+
+        <button id="retrieve_parameters" class="btn btn-primary">Retrieve Parameters</button>
+        <button id="plot" class="btn btn-success">Plot</button>
+    </div>
+
+    <!-- Place for parameter inputs -->
+    <div id="parameter-inputs" class="container mt-5">
+        <div class="row">
+            <div class="col" id="column1"></div>
+            <div class="col" id="column2"></div>
+            <div class="col" id="column3"></div>
+        </div>
+    </div>
+
+    <!-- Place for graph -->
+    <div id="graph" class="container mt-5"></div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script> <!-- Include Plotly library -->
+    <script>
+        $(document).ready(function() {
+            $('#retrieve_parameters').click(function() {
+                var system_id = $('#system_id').val();
+                var obs = $('#obs').val(); // Get selected observatory
+                var RF = $('#RF').val();   // Get selected rest frame
+                $.ajax({
+                    type: 'POST',
+                    url: '/get_parameters',
+                    data: { system_id: system_id, obs: obs, RF: RF }, // Pass observatory and rest frame
+                    success: function(response) {
+                        var parameter_inputs = '';
+                        // Define the desired order of parameters
+                        var parameter_order = ['transitC', 'period', 'ecc', 'omega', 'a', 'aRs', 'orbinc', 'vsini', 'pob', 'Ms', 'Mp', 'RpRs', 'K', 'vsys', 'T14', 'RA', 'DEC', 'n_exp'];
+                        // Calculate number of parameters per column
+                        var parameters_per_column = Math.ceil(parameter_order.length / 3);
+                        // Loop through the parameters in the desired order and divide into three columns
+                        $.each(parameter_order, function(index, key) {
+                            // Format numeric values with dot or comma as decimal separator
+                            var value = response[key];
+                            if ($.isNumeric(value)) {
+                                // Parse the numeric value
+                                var numericValue = parseFloat(value);
+                                // If parsing is successful, format the numeric value and remove commas
+                                if (!isNaN(numericValue)) {
+                                    // Remove commas from the formatted value
+                                    value = numericValue.toLocaleString('en-US', { maximumFractionDigits: 2 }).replace(/,/g, '');
+                                }
+                            }
+                            // Determine the target column based on the index
+                            var target_column = Math.floor(index / parameters_per_column) + 1;
+                            var columnId = '#column' + target_column; // Construct column ID
+                            // Append input to the respective column
+                            $(columnId).append('<div class="form-group">' +
+                                                    '<label for="' + key + '">' + key + '</label>' +
+                                                    '<input type="text" class="form-control" id="' + key + '" value="' + value + '">' +
+                                                '</div>');
+                        });
+                    
+                        // Append obs and RF parameters at the end of the columns
+                        $('#column1').append('<div class="form-group">' +
+                                                '<label for="obs">Observatory</label>' +
+                                                '<input type="text" class="form-control" id="obs" value="' + response.obs + '">' +
+                                            '</div>');
+                    
+                        $('#column2').append('<div class="form-group">' +
+                                                '<label for="RF">Rest Frame</label>' +
+                                                '<input type="text" class="form-control" id="RF" value="' + response.RF + '">' +
+                                            '</div>');
+                    }                    
+                });
+            });
+    
+            $('#plot').click(function() {
+                var input_values = {};
+                $('#parameter-inputs input').each(function() {
+                    input_values[$(this).attr('id')] = $(this).val();
+                });
+                $.ajax({
+                    type: 'POST',
+                    contentType: 'application/json',
+                    url: '/plot',
+                    data: JSON.stringify({ input_values: input_values }),
+                    success: function(response) {
+                        var graph = '<div id="plotly_graph"></div>';
+                        $('#graph').html(graph);
+                        Plotly.newPlot('plotly_graph', JSON.parse(response));
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

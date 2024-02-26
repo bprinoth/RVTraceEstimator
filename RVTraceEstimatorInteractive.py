@@ -8,7 +8,6 @@ from PyAstronomy import pyasl
 import astropy.units as u
 import radvel
 from PyAstronomy import modelSuite as ms
-import seaborn as sns
 
 
 
@@ -55,12 +54,40 @@ class RVTraceEstimator:
     def load_observation(self):
         print('[INFO] Generate observation')
         
-        obstimes = np.linspace(self.transitC-(self.T14+0.5)/24/2, self.transitC+(self.T14+0.5)/24/2, 200) - 2450000.5
+        obstimes = np.linspace(self.transitC-(self.T14+0.5)/24/2, self.transitC+(self.T14+0.5)/24/2, 200) - 2400000.5
+        
+        
             
-        print(len(obstimes))
+        #print(obstimes, self.transitC)
         self.obstimes=obstimes
-        mjds = Time(obstimes, format='mjd')
+        mjds = Time(self.obstimes, format='mjd')
         self.bjds = mjds.jd
+        
+        self.Tc_n = Time(self.transitC, format='jd',scale='tdb')
+        
+        #print(self.Tc_n)
+        
+        if (self.Tc_n.jd) <= min(self.bjds):
+            #print(self.Tc_n, min(self.bjds), 'INCREASING!')
+            
+            starting_point = -int((self.Tc_n.jd - max(self.bjds))/self.period)
+            #print(starting_point)
+            while self.Tc_n.jd <= min(self.bjds):
+                self.Tc_n=Time(self.transitC+starting_point*self.period+n*self.period,format='jd',scale='tdb') # this figures out what the Tc of the observation is.
+                n+=1
+            
+        
+        else: # we decrease it until it is smaller than the last
+            #print(self.Tc_n, max(self.bjds), 'DECREASING!')
+            
+            starting_point = int((self.Tc_n.jd - max(self.bjds))/self.period)
+            #print(starting_point)
+            while self.Tc_n.jd >= max(self.bjds):
+                self.Tc_n=Time(self.transitC+starting_point*self.period-n*self.period,format='jd',scale='tdb') # this figures out what the Tc of the observation is.
+                n+=1
+                
+                
+        self.Tc_observation = self.Tc_n.mjd
         
     
     def transit_ecc(self):
