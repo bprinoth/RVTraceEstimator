@@ -4,3 +4,4 @@ RVTraceEstimator allows you to calculate the radial velocity extents of your pla
 
 It allows you to pick you to query the NASA Exoplanet Archive for the orbital, planetary and stellar parameters and pick a date for your observation. 
 
+Interactive version (completely without downloading anything): https://rv.bibianaprinoth.ch
