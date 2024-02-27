@@ -37,11 +37,13 @@ plt.rcParams['legend.framealpha'] = 1
 class RVTraceEstimator:
     
     
-    def __init__(self, input_params, obs='paranal'):
+    def __init__(self, input_params, obsdate, Tdur, obs='paranal'):
         
-        self.transitC, self.period, self.ecc, self.omega, self.a, self.aRs, self.orbinc, self.vsini, self.pob, self.Ms, self.Mp, self.RpRs, self.K, self.vsys, self.T14, self.RA, self.DEC, self.n_exp  = input_params
+        self.transitC, self.period, self.ecc, self.omega, self.a, self.aRs, self.orbinc, self.vsini, self.pob, self.Ms, self.Mp, self.RpRs, self.K, self.vsys, self.RA, self.DEC, self.n_exp  = input_params
         
         self.obs = obs
+        self.T14 = float(Tdur)
+        self.obsdate = Time(obsdate,  format='isot').jd
         
         self.load_observation()
         self.read_orbital_configuration()
@@ -54,41 +56,19 @@ class RVTraceEstimator:
     def load_observation(self):
         print('[INFO] Generate observation')
         
-        obstimes = np.linspace(self.transitC-(self.T14+0.5)/24/2, self.transitC+(self.T14+0.5)/24/2, 200) - 2400000.5
+        obstimes = np.linspace(self.obsdate, self.obsdate+(self.T14)/24, int(self.n_exp)) - 2400000.5
         
         
             
         #print(obstimes, self.transitC)
         self.obstimes=obstimes
         mjds = Time(self.obstimes, format='mjd')
-        self.bjds = mjds.jd
+        self.bjds = mjds.jd 
         
-        self.Tc_n = Time(self.transitC, format='jd',scale='tdb')
-        
-        #print(self.Tc_n)
-        
-        if (self.Tc_n.jd) <= min(self.bjds):
-            #print(self.Tc_n, min(self.bjds), 'INCREASING!')
-            
-            starting_point = -int((self.Tc_n.jd - max(self.bjds))/self.period)
-            #print(starting_point)
-            while self.Tc_n.jd <= min(self.bjds):
-                self.Tc_n=Time(self.transitC+starting_point*self.period+n*self.period,format='jd',scale='tdb') # this figures out what the Tc of the observation is.
-                n+=1
-            
-        
-        else: # we decrease it until it is smaller than the last
-            #print(self.Tc_n, max(self.bjds), 'DECREASING!')
-            
-            starting_point = int((self.Tc_n.jd - max(self.bjds))/self.period)
-            #print(starting_point)
-            while self.Tc_n.jd >= max(self.bjds):
-                self.Tc_n=Time(self.transitC+starting_point*self.period-n*self.period,format='jd',scale='tdb') # this figures out what the Tc of the observation is.
-                n+=1
+        #print(self.obstimes)
                 
-                
-        self.Tc_observation = self.Tc_n.mjd
-        
+        self.Tc_observation = Time(self.obsdate, format='jd',scale='tdb') - 2400000.5 #self.Tc_n.mjd
+        print(self.Tc_observation)
     
     def transit_ecc(self):
         print('[INFO] Determining in-transit expsoures')
@@ -125,7 +105,7 @@ class RVTraceEstimator:
         
         
         
-            
+        print(self.omega, self.ecc, self.period, self.transitC)
         
         omega_bar = np.radians(self.omega)
         self.T_per = radvel.orbit.timetrans_to_timeperi(self.transitC, self.period, self.ecc, omega_bar)
@@ -356,7 +336,7 @@ class RVTraceEstimator:
             self.RVs_RM = vstar_sorted.T - RVstar_sorted
             self.RVs_planet = vplanet_sorted
             self.RVs_star = RVstar_sorted
-            self.RVs_tel = tel_sorted
+            self.RVs_tel = tel
 
             print(f"[INFO] I don't know this restframe, I am using the system restframe")
 

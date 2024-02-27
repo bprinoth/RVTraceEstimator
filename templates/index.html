@@ -10,6 +10,7 @@
 <body>
     <div class="container mt-5">
         <h1>RV Trace Estimator</h1>
+
         <div class="form-group">
             <label for="system_id">System ID</label>
             <input type="text" class="form-control" id="system_id" placeholder="Enter system ID">
@@ -22,6 +23,17 @@
                 <option value="paranal">Paranal</option>
             </select>
         </div>
+
+        <div class="form-group">
+            <label for="observation_date">Observation Start</label>
+            <input type="datetime-local" class="form-control" id="observation_date">
+        </div>
+
+        <div class="form-group">
+            <label for="T14">Observation Duration [h] </label>
+            <input type="text" class="form-control" id="T14" placeholder="Enter observation duration">
+        </div>
+
 
         <!-- Rest Frame Dropdown -->
         <div class="form-group">
@@ -36,6 +48,7 @@
 
         <button id="retrieve_parameters" class="btn btn-primary">Retrieve Parameters</button>
         <button id="plot" class="btn btn-success">Plot</button>
+        <button id="download" class="btn btn-info">Download Traces</button>
     </div>
 
     <!-- Place for loading spinner -->
@@ -59,13 +72,23 @@
     <div id="graph" class="container mt-5"></div>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script> <!-- Include Plotly library -->
     <script>
+        // Function to format date to ISO string (YYYY-MM-DDTHH:MM)
+        function formatToLocalDateTime(dateString) {
+            var date = new Date(dateString); // Create Date object from string
+            var isoString = date.toISOString().slice(0, 16); // Get ISO string and remove seconds and timezone
+            return isoString;
+        }
+
         $(document).ready(function() {
             $('#retrieve_parameters').click(function() {
                 var system_id = $('#system_id').val();
                 var obs = $('#obs').val(); // Get selected observatory
                 var RF = $('#RF').val();   // Get selected rest frame
+                var observation_date = formatToLocalDateTime($('#observation_date').val()); // Get observation date
+                var T14 = $('#T14').val(); // Get T14 value
 
                 // Show loading spinner
                 $('#loading-spinner').show();
@@ -76,16 +99,38 @@
                 $.ajax({
                     type: 'POST',
                     url: '/get_parameters',
-                    data: { system_id: system_id, obs: obs, RF: RF }, // Pass observatory and rest frame
+                    data: { system_id: system_id, obs: obs, RF: RF, observation_date: observation_date, T14: T14 }, // Pass observatory, rest frame, and observation date
                     success: function(response) {
                         // Hide loading spinner
                         $('#loading-spinner').hide();
 
+                        console.log('Response:', response); // Debugging statement
+
                         var parameter_inputs = '';
                         // Define the desired order of parameters
-                        var parameter_order = ['transitC', 'period', 'ecc', 'omega', 'a', 'aRs', 'orbinc', 'vsini', 'pob', 'Ms', 'Mp', 'RpRs', 'K', 'vsys', 'T14', 'RA', 'DEC', 'n_exp'];
+                        var parameter_order = ['transitC', 'period', 'ecc', 'omega', 'a', 'aRs', 'orbinc', 'vsini', 'pob', 'Ms', 'Mp', 'RpRs', 'K', 'vsys', 'RA', 'DEC', 'n_exp'];
                         // Calculate number of parameters per column
                         var parameters_per_column = Math.ceil(parameter_order.length / 3);
+
+                        var parameter_labels = {
+                            'transitC': 'Transit Center [BJD]',
+                            'period': 'Orbital Period [days]',
+                            'ecc': 'Eccentricity',
+                            'omega': 'Argument of Periastron [deg]',
+                            'a': 'Semi-Major Axis [AU]',
+                            'aRs': 'Scaled Semi-Major Axis a/Rs',
+                            'orbinc': 'Orbital Inclination [deg]',
+                            'vsini': 'Projected Rotational Velocity [km/s]',
+                            'pob': 'Orbital Period [days]',
+                            'Ms': 'Stellar Mass [Msun]',
+                            'Mp': 'Planet Mass [Mjup]',
+                            'RpRs': 'Planet Radius to Stellar Radius Ratio',
+                            'K': 'Radial Velocity Amplitude [km/s]',
+                            'vsys': 'Systemic Velocity [km/s]',
+                            'RA': 'Right Ascension [deg]',
+                            'DEC': 'Declination [deg]',
+                            'n_exp': 'Number of Exposures'
+                        };
                         // Loop through the parameters in the desired order and divide into three columns
                         $.each(parameter_order, function(index, key) {
                             // Format numeric values with dot or comma as decimal separator
@@ -104,30 +149,27 @@
                             var columnId = '#column' + target_column; // Construct column ID
                             // Append input and label to the respective column
                             $(columnId).append('<div class="form-group">' +
-                                                    '<label for="' + key + '">' + key + '</label>' +
+                                                    '<label for="' + key + '">' + parameter_labels[key] + '</label>' +
                                                     '<input type="text" class="form-control" id="' + key + '" value="' + value + '">' +
                                                 '</div>');
                         });
-                    
-                        // Append obs and RF parameters at the end of the columns
-                        $('#column1').append('<div class="form-group">' +
-                                                '<label for="obs">Observatory</label>' +
-                                                '<input type="text" class="form-control" id="obs" value="' + response.obs + '">' +
-                                            '</div>');
-                    
-                        $('#column2').append('<div class="form-group">' +
-                                                '<label for="RF">Rest Frame</label>' +
-                                                '<input type="text" class="form-control" id="RF" value="' + response.RF + '">' +
-                                            '</div>');
-                    }                    
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error:', error); // Debugging statement for errors
+                    }
                 });
             });
-    
+
             $('#plot').click(function() {
                 var input_values = {};
                 $('#parameter-inputs input').each(function() {
                     input_values[$(this).attr('id')] = $(this).val();
                 });
+                input_values['observation_date'] = formatToLocalDateTime($('#observation_date').val());
+                input_values['obs'] = $('#obs').val();
+                input_values['RF'] = $('#RF').val();
+                input_values['T14'] = $('#T14').val();
+            
                 $.ajax({
                     type: 'POST',
                     contentType: 'application/json',
@@ -136,10 +178,68 @@
                     success: function(response) {
                         var graph = '<div id="plotly_graph"></div>';
                         $('#graph').html(graph);
-                        Plotly.newPlot('plotly_graph', JSON.parse(response));
+                        Plotly.newPlot('plotly_graph', response.plot.data, response.plot.layout);
                     }
                 });
             });
+            
+            $('#download').click(function() {
+                var input_values = {};
+                $('#parameter-inputs input').each(function() {
+                    input_values[$(this).attr('id')] = $(this).val();
+                });
+                // Add observation date, obs, and RF to input values
+                input_values['observation_date'] = formatToLocalDateTime($('#observation_date').val());
+                input_values['obs'] = $('#obs').val();
+                input_values['RF'] = $('#RF').val();
+                input_values['T14'] = $('#T14').val();
+            
+                $.ajax({
+                    type: 'POST',
+                    contentType: 'application/json',
+                    url: '/plot',
+                    data: JSON.stringify({ input_values: input_values }),
+                    success: function(response) {
+                        var data = {
+                            phases: response.phases,
+                            RVs_RM: response.RVs_RM,
+                            transit_sorted: response.transit_sorted,
+                            RVs_planet: response.RVs_planet,
+                            RVs_star: response.RVs_star,
+                            RVs_tel: response.RVs_tel
+                        };
+                    
+                        // Combine data into an array of objects
+                        var rows = [];
+                        for (var i = 0; i < data.phases.length; i++) {
+                            rows.push({
+                                phase: data.phases[i],
+                                RV_RM: data.RVs_RM[i],
+                                transit_sorted: data.transit_sorted[i],
+                                RV_planet: data.RVs_planet[i],
+                                RV_star: data.RVs_star[i],
+                                RV_tel: data.RVs_tel[i]
+                            });
+                        }
+                    
+                        // Convert array of objects to CSV format
+                        var csv = Papa.unparse(rows);
+                    
+                        var csvContent = "data:text/csv;charset=utf-8," + csv;
+                        var encodedUri = encodeURI(csvContent);
+                        var link = document.createElement("a");
+                        link.setAttribute("href", encodedUri);
+                        link.setAttribute("download", "output.csv");
+                        document.body.appendChild(link); // Required for FF
+                        link.click(); // This will download the data file named "output.csv".
+                    },
+                    
+                    error: function(xhr, status, error) {
+                        alert('Failed to download!');
+                        console.error('Error:', error);
+                    }
+                });
+            });              
         });
     </script>
 </body>
