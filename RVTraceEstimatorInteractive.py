@@ -43,7 +43,7 @@ class RVTraceEstimator:
         
         self.obs = obs
         self.T14 = float(Tdur)
-        self.obsdate = Time(obsdate,  format='isot').jd
+        self.obsdate = Time(obsdate,  format='isot', scale='utc').jd
         
         self.load_observation()
         self.read_orbital_configuration()
