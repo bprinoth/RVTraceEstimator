@@ -87,7 +87,14 @@
                 var system_id = $('#system_id').val();
                 var obs = $('#obs').val(); // Get selected observatory
                 var RF = $('#RF').val();   // Get selected rest frame
-                var observation_date = formatToLocalDateTime($('#observation_date').val()); // Get observation date
+                //var observation_date = formatToLocalDateTime($('#observation_date').val()); // Get observation date
+                // Get the value and convert it to a Date object
+                
+                var observation_date_input = new Date($('#observation_date').val());
+
+                // Convert the date to UTC format
+                var observation_date = observation_date_input.toISOString(); // Returns ISO string in UTC (e.g., "2025-01-21T12:34:56.789Z")
+                
                 var T14 = $('#T14').val(); // Get T14 value
 
                 // Show loading spinner
