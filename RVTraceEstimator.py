@@ -147,7 +147,7 @@ class RVTraceEstimator:
             self.period = paramget('P', self.dp)
             self.T14 = paramget('T14', self.dp)
             
-            obstimes = np.linspace(self.transitC-(self.T14+0.5)/24/2, self.transitC+(self.T14+0.5)/24/2, 200) - 2450000.5
+            obstimes = np.linspace(self.transitC-(self.T14+0.5)/24/2, self.transitC+(self.T14+0.5)/24/2, 200) - 2400000.5
             
         
         self.obstimes=obstimes
