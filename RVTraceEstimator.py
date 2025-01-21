@@ -418,13 +418,13 @@ class RVTraceEstimator:
             self.RVs_RM = vstar_sorted.T - RVstar_sorted
             self.RVs_planet = vplanet_sorted
             self.RVs_star = RVstar_sorted
-            self.RVs_tel = tel_sorted
+            self.RVs_tel = tel
 
             print(f"[INFO] I don't know this restframe, I am plotting in the system restframe")
 
 
         
-        RV_ext = np.max(np.abs(np.concatenate()))
+        #RV_ext = np.max(np.abs(np.concatenate()))
         
         if not RF=='all':
             plt.figure(figsize=(6,6))
