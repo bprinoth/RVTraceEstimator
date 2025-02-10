@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, Response
 from RVTraceEstimatorInteractive import RVTraceEstimator
 import plotly.express as px
 from astroquery.ipac.nexsci.nasa_exoplanet_archive import NasaExoplanetArchive
@@ -6,7 +6,7 @@ import numpy as np
 from astropy.time import Time
 from datetime import datetime, timezone
 import pandas as pd
-
+import json
 
 app = Flask(__name__)
 
@@ -95,7 +95,15 @@ def get_parameters():
     obsdate = request.form['observation_date']
     T14 = request.form['T14']
     system_parameters = retrieve_system_parameters(system_id, obs, RF, obsdate, T14)
-    return jsonify(system_parameters)
+
+    #print(f"Raw system_parameters: {system_parameters}")  # Debugging step
+
+    #try:
+    # Manually serialize with full precision
+    response_data = json.dumps(system_parameters, indent=2, ensure_ascii=False, allow_nan=True)
+
+    # Return response as JSON with correct content type
+    return Response(response_data, mimetype='application/json')
 
 @app.route('/plot', methods=['POST'])
 def plot():
