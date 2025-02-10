@@ -107,11 +107,11 @@
                     type: 'POST',
                     url: '/get_parameters',
                     data: { system_id: system_id, obs: obs, RF: RF, observation_date: observation_date, T14: T14 }, // Pass observatory, rest frame, and observation date
+
                     success: function(response) {
+                        console.log(response);
                         // Hide loading spinner
                         $('#loading-spinner').hide();
-
-                        console.log('Response:', response); // Debugging statement
 
                         var parameter_inputs = '';
                         // Define the desired order of parameters
@@ -142,13 +142,19 @@
                         $.each(parameter_order, function(index, key) {
                             // Format numeric values with dot or comma as decimal separator
                             var value = response[key];
+                            console.log("Original value for " + key + ": " + value);
+                            
                             if ($.isNumeric(value)) {
                                 // Parse the numeric value
-                                var numericValue = parseFloat(value);
+                                var numericValue = value;
                                 // If parsing is successful, format the numeric value and remove commas
                                 if (!isNaN(numericValue)) {
                                     // Remove commas from the formatted value
-                                    value = numericValue.toLocaleString('en-US', { maximumFractionDigits: 2 }).replace(/,/g, '');
+                                    //value = numericValue.toLocaleString('en-US', { maximumFractionDigits: 16 }).replace(/,/g, '');
+                                    value = numericValue.toLocaleString('en-US', {
+                                                                        maximumFractionDigits: 16,
+                                                                        //minimumFractionDigits: 16 // Ensures that the number always has 16 decimals
+                                                                    }).replace(/,/g, ''); // Remove commas if there are any
                                 }
                             }
                             // Determine the target column based on the index
