@@ -131,7 +131,7 @@ class RVTraceEstimator:
         ecc_anomaly = ke.eccentricAnomaly(self.bjds)
         node = np.radians(self.pob)
         
-        print(ecc_anomaly, self.T_per)
+        #print(ecc_anomaly, self.T_per)
         
         
         self.true_anomaly = 2. * np.arctan(np.sqrt((1. + self.ecc) / (1. - self.ecc)) * np.tan(ecc_anomaly / 2.))
