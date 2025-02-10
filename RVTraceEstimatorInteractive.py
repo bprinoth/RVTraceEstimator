@@ -43,8 +43,15 @@ class RVTraceEstimator:
         
         self.obs = obs
         self.T14 = float(Tdur)
-        self.obsdate = Time(obsdate,  format='isot', scale='utc').jd + 2400000.5
+        obsdate_utc = Time(obsdate,  format='isot', scale='utc') #+ 2400000.5
+        self.obsdate = (obsdate_utc.tdb).jd
+
+        # overwrite transitC with the value that comes after the transit start. So the first transit c after. 
         
+        deltat = self.obsdate - self.transitC # time has passed since the transit c 
+        #print(deltat / self.period)
+        self.transitC = self.transitC + np.int64(deltat / self.period) * self.period
+
         self.load_observation()
         self.read_orbital_configuration()
         self.calculate_planet_position()
@@ -52,39 +59,34 @@ class RVTraceEstimator:
         self.RV_RM()
         self.RV_star()
         self.RV_planet()
+
         
     def load_observation(self):
         print('[INFO] Generate observation')
         
         obstimes = np.linspace(self.obsdate, self.obsdate+(self.T14)/24, int(self.n_exp)) - 2400000.5
-        
-        
             
         #print(obstimes, self.transitC)
         self.obstimes=obstimes
         mjds = Time(self.obstimes, format='mjd')
         self.bjds = mjds.jd 
-        
-        #print(self.obstimes)
-                
-        self.Tc_observation = Time(self.obsdate, format='jd',scale='tdb') - 2400000.5 #self.Tc_n.mjd
-        print(self.Tc_observation)
-    
+ 
     def transit_ecc(self):
         print('[INFO] Determining in-transit expsoures')
         
         self.calculate_planet_position()
         
         rho   = np.sqrt(self.xp**2+self.yp**2) 
+        #print(self.xp, self.yp, self.zp)
         dmin  = rho-self.RpRs #minimal distance between the planet ellipse and the origin
         dmax  = rho+self.RpRs #maximal distance between the planet ellipse and the origin
-        
         
         transit = np.zeros_like(self.bjds)
         transit[self.zp < 0.] = 1. # planet is out of transit
         transit[dmin >= 1.] = 1 # planet is not overlapping with the stellar disk. 
         
-        self.transit = transit        
+        self.transit = transit     
+        print(self.transit)   
     
     def read_orbital_configuration(self):
         print('[INFO] Reading orbital configuration')
@@ -104,23 +106,12 @@ class RVTraceEstimator:
         # self.vsys = sp.paramget('vsys', self.dp)
         
         
-        
-        print(self.omega, self.ecc, self.period, self.transitC)
-        
         omega_bar = np.radians(self.omega)
         self.T_per = radvel.orbit.timetrans_to_timeperi(self.transitC, self.period, self.ecc, omega_bar)
         
-            
-               
-            
         self.transit_ecc()  
-        
-    
-        
     
     def calculate_planet_position(self):
-        
-
             
         # degree to radians
         omega_bar = np.radians(self.omega)
@@ -140,7 +131,7 @@ class RVTraceEstimator:
         ecc_anomaly = ke.eccentricAnomaly(self.bjds)
         node = np.radians(self.pob)
         
-        
+        print(ecc_anomaly, self.T_per)
         
         
         self.true_anomaly = 2. * np.arctan(np.sqrt((1. + self.ecc) / (1. - self.ecc)) * np.tan(ecc_anomaly / 2.))
